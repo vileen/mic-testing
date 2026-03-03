@@ -381,6 +381,33 @@
             background: #7289da;
             transition: width 0.1s;
         }
+        
+        .fps-chart-container {
+            background: #0f3460;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            position: relative;
+        }
+        
+        .fps-chart-container canvas {
+            width: 100%;
+            height: 100px;
+            display: block;
+        }
+        
+        .fps-labels {
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            left: 5px;
+            top: 15px;
+            bottom: 15px;
+            justify-content: space-between;
+            font-size: 9px;
+            color: #666;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -525,6 +552,16 @@
                     <div class="stat-box">
                         <div class="stat-label">Frame Rate</div>
                         <div class="stat-value" id="currentFps">-</div>
+                    </div>
+                </div>
+                
+                <div class="fps-chart-container">
+                    <canvas id="fpsChart" width="400" height="100"></canvas>
+                    <div class="fps-labels">
+                        <span>60</span>
+                        <span>30</span>
+                        <span>15</span>
+                        <span>0</span>
                     </div>
                 </div>
                 
@@ -860,8 +897,13 @@
         // VIDEO SECTION
         let videoStream = null;
         let isVideoRunning = false;
+        let fpsHistory = new Array(100).fill(0); // Last 100 FPS samples
+        let lastFrameTime = 0;
+        let fpsChartAnimId = null;
         
         const videoPreview = document.getElementById('videoPreview');
+        const fpsCanvas = document.getElementById('fpsChart');
+        const fpsCtx = fpsCanvas.getContext('2d');
         const videoPlaceholder = document.getElementById('videoPlaceholder');
         const videoStatusDot = document.getElementById('videoStatusDot');
         const videoStatusText = document.getElementById('videoStatusText');
@@ -931,6 +973,11 @@
                 document.getElementById('currentRes').textContent = `${settings.width}x${settings.height}`;
                 document.getElementById('currentFps').textContent = `${settings.frameRate || '-'} fps`;
                 
+                // Start FPS tracking
+                lastFrameTime = performance.now();
+                fpsHistory.fill(0);
+                trackFps();
+                
                 isVideoRunning = true;
                 videoToggleBtn.textContent = 'Stop Camera Test';
                 videoToggleBtn.classList.add('stop');
@@ -944,6 +991,10 @@
         }
         
         function stopVideo() {
+            if (fpsChartAnimId) {
+                cancelAnimationFrame(fpsChartAnimId);
+            }
+            
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
             }
@@ -955,11 +1006,112 @@
             document.getElementById('currentRes').textContent = '-';
             document.getElementById('currentFps').textContent = '-';
             
+            // Clear chart
+            fpsCtx.clearRect(0, 0, fpsCanvas.width, fpsCanvas.height);
+            fpsHistory.fill(0);
+            
             isVideoRunning = false;
             videoToggleBtn.textContent = 'Start Camera Test';
             videoToggleBtn.classList.remove('stop');
             videoStatusDot.classList.remove('active');
             videoStatusText.textContent = 'Click Start to test camera';
+        }
+        
+        function trackFps() {
+            if (!isVideoRunning) return;
+            
+            const now = performance.now();
+            const delta = now - lastFrameTime;
+            lastFrameTime = now;
+            
+            // Calculate FPS (cap at 60 for chart scaling)
+            const fps = Math.min(60, Math.round(1000 / delta));
+            
+            // Shift history and add new value
+            fpsHistory.shift();
+            fpsHistory.push(fps);
+            
+            // Update current FPS display occasionally
+            if (fpsHistory.length % 10 === 0) {
+                const avgFps = Math.round(fpsHistory.slice(-30).reduce((a, b) => a + b, 0) / 30);
+                document.getElementById('currentFps').textContent = avgFps + ' fps';
+            }
+            
+            drawFpsChart();
+            
+            fpsChartAnimId = requestAnimationFrame(trackFps);
+        }
+        
+        function drawFpsChart() {
+            const ctx = fpsCtx;
+            const w = fpsCanvas.width;
+            const h = fpsCanvas.height;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, w, h);
+            
+            // Draw grid lines
+            ctx.strokeStyle = '#1a4a7a';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 2]);
+            
+            // 60fps line
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(w, 0);
+            ctx.stroke();
+            
+            // 30fps line
+            ctx.beginPath();
+            ctx.moveTo(0, h * 0.5);
+            ctx.lineTo(w, h * 0.5);
+            ctx.stroke();
+            
+            // 15fps line
+            ctx.beginPath();
+            ctx.moveTo(0, h * 0.75);
+            ctx.lineTo(w, h * 0.75);
+            ctx.stroke();
+            
+            ctx.setLineDash([]);
+            
+            // Draw FPS line
+            ctx.strokeStyle = '#4ecca3';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            const stepX = w / (fpsHistory.length - 1);
+            
+            for (let i = 0; i < fpsHistory.length; i++) {
+                const fps = fpsHistory[i];
+                const x = i * stepX;
+                const y = h - (fps / 60) * h; // Scale 0-60fps to canvas height
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            
+            ctx.stroke();
+            
+            // Draw fill under line
+            ctx.fillStyle = 'rgba(78, 204, 163, 0.2)';
+            ctx.lineTo(w, h);
+            ctx.lineTo(0, h);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Draw current FPS dot
+            const lastFps = fpsHistory[fpsHistory.length - 1];
+            const lastX = w;
+            const lastY = h - (lastFps / 60) * h;
+            
+            ctx.fillStyle = lastFps < 20 ? '#e94560' : (lastFps < 30 ? '#f1c40f' : '#4ecca3');
+            ctx.beginPath();
+            ctx.arc(lastX - 3, lastY, 4, 0, Math.PI * 2);
+            ctx.fill();
         }
         
         cameraSelect.addEventListener('change', () => {
