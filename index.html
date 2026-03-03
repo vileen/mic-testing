@@ -460,6 +460,20 @@
             
             <div class="controls" style="margin-top: 20px;">
                 <div class="control-group">
+                    <label>🎤 Microphone Input</label>
+                    <select class="device-select" id="micSelect">
+                        <option value="">Default Microphone</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>🔊 Audio Output</label>
+                    <select class="device-select" id="outputSelect">
+                        <option value="">Default Output</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
                     <label>Delay (network latency)</label>
                     <div class="slider-container">
                         <input type="range" id="delaySlider" min="0" max="5000" value="150" step="50">
@@ -672,6 +686,8 @@
         const lowBand = document.getElementById('lowBand');
         const midBand = document.getElementById('midBand');
         const highBand = document.getElementById('highBand');
+        const micSelect = document.getElementById('micSelect');
+        const outputSelect = document.getElementById('outputSelect');
         
         const delaySlider = document.getElementById('delaySlider');
         const delayValue = document.getElementById('delayValue');
@@ -753,14 +769,21 @@
             try {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 
+                const audioConstraints = {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                    sampleRate: 48000,
+                    channelCount: 1
+                };
+                
+                // Add device selection if chosen
+                if (micSelect.value) {
+                    audioConstraints.deviceId = { exact: micSelect.value };
+                }
+                
                 micStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: false,
-                        noiseSuppression: false,
-                        autoGainControl: false,
-                        sampleRate: 48000,
-                        channelCount: 1
-                    }
+                    audio: audioConstraints
                 });
                 
                 sourceNode = audioCtx.createMediaStreamSource(micStream);
@@ -931,6 +954,56 @@
         }
         
         populateCameras();
+        
+        // Populate audio devices
+        async function populateAudioDevices() {
+            try {
+                // Request permission first to get labels
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                
+                // Microphones
+                const mics = devices.filter(d => d.kind === 'audioinput');
+                micSelect.innerHTML = '<option value="">Default Microphone</option>';
+                mics.forEach((mic, idx) => {
+                    const option = document.createElement('option');
+                    option.value = mic.deviceId;
+                    option.text = mic.label || `Microphone ${idx + 1}`;
+                    micSelect.appendChild(option);
+                });
+                
+                // Audio outputs
+                const outputs = devices.filter(d => d.kind === 'audiooutput');
+                outputSelect.innerHTML = '<option value="">Default Output</option>';
+                outputs.forEach((out, idx) => {
+                    const option = document.createElement('option');
+                    option.value = out.deviceId;
+                    option.text = out.label || `Output ${idx + 1}`;
+                    outputSelect.appendChild(option);
+                });
+            } catch (err) {
+                console.error('Error enumerating audio devices:', err);
+            }
+        }
+        
+        populateAudioDevices();
+        
+        // Handle output device change
+        outputSelect.addEventListener('change', async () => {
+            if (isAudioRunning && audioCtx && audioCtx.destination) {
+                // Note: Changing output on the fly requires setSinkId which isn't universally supported
+                // For now, we restart audio with new device
+                if (outputSelect.value && typeof audioCtx.setSinkId === 'function') {
+                    try {
+                        await audioCtx.setSinkId(outputSelect.value);
+                    } catch (err) {
+                        console.error('Error setting output device:', err);
+                        alert('Changing output device requires restarting audio test');
+                    }
+                }
+            }
+        });
         
         async function toggleVideo() {
             if (isVideoRunning) {
@@ -1153,6 +1226,13 @@
             if (isVideoRunning) {
                 stopVideo();
                 startVideo();
+            }
+        });
+        
+        micSelect.addEventListener('change', () => {
+            if (isAudioRunning) {
+                stopAudio();
+                startAudio();
             }
         });
         
