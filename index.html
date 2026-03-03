@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mic Test - Discord/Teams Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        
+        h1 {
+            color: #7289da;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .container {
+            background: #16213e;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #0f3460;
+            border-radius: 10px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e94560;
+            transition: background 0.3s;
+        }
+        
+        .status-dot.active {
+            background: #4ecca3;
+            box-shadow: 0 0 10px #4ecca3;
+        }
+        
+        .status-text {
+            font-weight: 500;
+        }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        label {
+            font-size: 13px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        input[type="range"] {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #0f3460;
+            border-radius: 3px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #7289da;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+        
+        .value {
+            min-width: 60px;
+            text-align: right;
+            font-family: monospace;
+            font-size: 14px;
+            color: #7289da;
+        }
+        
+        button {
+            background: #7289da;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background: #5b73c7;
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            background: #333;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        button.stop {
+            background: #e94560;
+        }
+        
+        button.stop:hover {
+            background: #d63050;
+        }
+        
+        .info {
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(114, 137, 218, 0.1);
+            border-left: 3px solid #7289da;
+            border-radius: 0 8px 8px 0;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #aaa;
+        }
+        
+        .info strong {
+            color: #7289da;
+        }
+        
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .preset-btn {
+            background: #0f3460;
+            padding: 8px 16px;
+            font-size: 12px;
+            margin: 0;
+        }
+        
+        .preset-btn:hover {
+            background: #1a4a7a;
+        }
+        
+        .vu-meter {
+            height: 30px;
+            background: #0f3460;
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .vu-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4ecca3 0%, #f1c40f 70%, #e94560 100%);
+            transition: width 0.1s;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎤 Mic Test Pro</h1>
+    <p class="subtitle">Real-time microphone loopback with Discord/Teams simulation</p>
+    
+    <div class="container">
+        <div class="status">
+            <div class="status-dot" id="statusDot"></div>
+            <span class="status-text" id="statusText">Ready to start</span>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>Input Level</label>
+                <div class="vu-meter">
+                    <div class="vu-fill" id="vuFill"></div>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label>Delay (simulates call latency)</label>
+                <div class="slider-container">
+                    <input type="range" id="delaySlider" min="0" max="5000" value="2000" step="100">
+                    <span class="value" id="delayValue">2000ms</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label>Input Gain</label>
+                <div class="slider-container">
+                    <input type="range" id="gainSlider" min="0" max="200" value="100">
+                    <span class="value" id="gainValue">100%</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label>Discord/Teams Simulation</label>
+                <div class="preset-buttons">
+                    <button class="preset-btn" onclick="setPreset('discord')">Discord</button>
+                    <button class="preset-btn" onclick="setPreset('teams')">MS Teams</button>
+                    <button class="preset-btn" onclick="setPreset('raw')">Raw (No FX)</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="noiseGate"> Noise Gate (cuts silence)
+                </label>
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="compression" checked> Voice Compression
+                </label>
+            </div>
+            
+            <button id="toggleBtn" onclick="toggleMic()">Start Mic Test</button>
+        </div>
+        
+        <div class="info">
+            <strong>How it works:</strong><br>
+            • Audio is captured from your microphone<br>
+            • Processed through Web Audio API (delay, compression, noise gate)<br>
+            • Played back to your speakers/headphones<br>
+            • <strong>⚠️ Use headphones to prevent feedback!</strong><br><br>
+            <strong>Discord preset:</strong> Aggressive noise gate, voice compression<br>
+            <strong>Teams preset:</strong> Moderate compression, echo cancellation
+        </div>
+    </div>
+
+    <script>
+        let audioContext = null;
+        let mediaStream = null;
+        let sourceNode = null;
+        let delayNode = null;
+        let gainNode = null;
+        let compressorNode = null;
+        let analyserNode = null;
+        let isRunning = false;
+        let animationId = null;
+        
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const toggleBtn = document.getElementById('toggleBtn');
+        const vuFill = document.getElementById('vuFill');
+        
+        const delaySlider = document.getElementById('delaySlider');
+        const delayValue = document.getElementById('delayValue');
+        const gainSlider = document.getElementById('gainSlider');
+        const gainValue = document.getElementById('gainValue');
+        
+        delaySlider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            delayValue.textContent = val + 'ms';
+            if (delayNode) {
+                delayNode.delayTime.setValueAtTime(val / 1000, audioContext.currentTime);
+            }
+        });
+        
+        gainSlider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            gainValue.textContent = val + '%';
+            if (gainNode) {
+                gainNode.gain.setValueAtTime(val / 100, audioContext.currentTime);
+            }
+        });
+        
+        function setPreset(type) {
+            const noiseGate = document.getElementById('noiseGate');
+            const compression = document.getElementById('compression');
+            
+            switch(type) {
+                case 'discord':
+                    noiseGate.checked = true;
+                    compression.checked = true;
+                    delaySlider.value = 2000;
+                    delayValue.textContent = '2000ms';
+                    break;
+                case 'teams':
+                    noiseGate.checked = false;
+                    compression.checked = true;
+                    delaySlider.value = 1500;
+                    delayValue.textContent = '1500ms';
+                    break;
+                case 'raw':
+                    noiseGate.checked = false;
+                    compression.checked = false;
+                    delaySlider.value = 500;
+                    delayValue.textContent = '500ms';
+                    break;
+            }
+            
+            if (delayNode) {
+                delayNode.delayTime.setValueAtTime(delaySlider.value / 1000, audioContext.currentTime);
+            }
+        }
+        
+        async function toggleMic() {
+            if (isRunning) {
+                stopMic();
+            } else {
+                await startMic();
+            }
+        }
+        
+        async function startMic() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        sampleRate: 48000
+                    }
+                });
+                
+                sourceNode = audioContext.createMediaStreamSource(mediaStream);
+                
+                // Analyser for VU meter
+                analyserNode = audioContext.createAnalyser();
+                analyserNode.fftSize = 256;
+                
+                // Compressor (voice processing like Discord/Teams)
+                compressorNode = audioContext.createDynamicsCompressor();
+                compressorNode.threshold.setValueAtTime(-24, audioContext.currentTime);
+                compressorNode.knee.setValueAtTime(30, audioContext.currentTime);
+                compressorNode.ratio.setValueAtTime(12, audioContext.currentTime);
+                compressorNode.attack.setValueAtTime(0.003, audioContext.currentTime);
+                compressorNode.release.setValueAtTime(0.25, audioContext.currentTime);
+                
+                // Delay node
+                delayNode = audioContext.createDelay(5.0);
+                delayNode.delayTime.setValueAtTime(delaySlider.value / 1000, audioContext.currentTime);
+                
+                // Gain node
+                gainNode = audioContext.createGain();
+                gainNode.gain.setValueAtTime(gainSlider.value / 100, audioContext.currentTime);
+                
+                // Connect graph
+                sourceNode.connect(analyserNode);
+                
+                if (document.getElementById('compression').checked) {
+                    analyserNode.connect(compressorNode);
+                    compressorNode.connect(delayNode);
+                } else {
+                    analyserNode.connect(delayNode);
+                }
+                
+                delayNode.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                isRunning = true;
+                toggleBtn.textContent = 'Stop Mic Test';
+                toggleBtn.classList.add('stop');
+                statusDot.classList.add('active');
+                statusText.textContent = 'Listening... (use headphones!)';
+                
+                updateVU();
+                
+            } catch (err) {
+                alert('Error accessing microphone: ' + err.message);
+                console.error(err);
+            }
+        }
+        
+        function stopMic() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+            
+            if (audioContext) {
+                audioContext.close();
+            }
+            
+            isRunning = false;
+            toggleBtn.textContent = 'Start Mic Test';
+            toggleBtn.classList.remove('stop');
+            statusDot.classList.remove('active');
+            statusText.textContent = 'Ready to start';
+            vuFill.style.width = '0%';
+        }
+        
+        function updateVU() {
+            if (!isRunning) return;
+            
+            const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
+            analyserNode.getByteFrequencyData(dataArray);
+            
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            const average = sum / dataArray.length;
+            const percentage = Math.min(100, (average / 128) * 100);
+            
+            vuFill.style.width = percentage + '%';
+            
+            animationId = requestAnimationFrame(updateVU);
+        }
+    </script>
+</body>
+</html>
