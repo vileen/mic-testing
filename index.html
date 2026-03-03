@@ -974,9 +974,14 @@
                 document.getElementById('currentFps').textContent = `${settings.frameRate || '-'} fps`;
                 
                 // Start FPS tracking
-                lastFrameTime = performance.now();
+                lastFrameTime = 0;
                 fpsHistory.fill(0);
-                trackFps();
+                if (videoPreview.requestVideoFrameCallback) {
+                    videoPreview.requestVideoFrameCallback(trackVideoFps);
+                } else {
+                    // Fallback: track at 30fps estimate
+                    trackVideoFps(performance.now(), { mediaTime: 0, presentedFrames: 0 });
+                }
                 
                 isVideoRunning = true;
                 videoToggleBtn.textContent = 'Stop Camera Test';
@@ -993,6 +998,7 @@
         function stopVideo() {
             if (fpsChartAnimId) {
                 cancelAnimationFrame(fpsChartAnimId);
+                fpsChartAnimId = null;
             }
             
             if (videoStream) {
@@ -1017,29 +1023,51 @@
             videoStatusText.textContent = 'Click Start to test camera';
         }
         
-        function trackFps() {
+        function trackVideoFps(now, metadata) {
             if (!isVideoRunning) return;
             
-            const now = performance.now();
-            const delta = now - lastFrameTime;
-            lastFrameTime = now;
-            
-            // Calculate FPS (cap at 60 for chart scaling)
-            const fps = Math.min(60, Math.round(1000 / delta));
-            
-            // Shift history and add new value
-            fpsHistory.shift();
-            fpsHistory.push(fps);
-            
-            // Update current FPS display occasionally
-            if (fpsHistory.length % 10 === 0) {
-                const avgFps = Math.round(fpsHistory.slice(-30).reduce((a, b) => a + b, 0) / 30);
-                document.getElementById('currentFps').textContent = avgFps + ' fps';
+            // Calculate actual video frame interval
+            if (lastFrameTime > 0) {
+                const delta = metadata.mediaTime - lastFrameTime;
+                const fps = Math.min(60, Math.round(1 / delta));
+                
+                // Shift history and add new value
+                fpsHistory.shift();
+                fpsHistory.push(fps);
+                
+                // Update display every 30 frames
+                if (metadata.presentedFrames % 30 === 0) {
+                    const avgFps = Math.round(fpsHistory.slice(-30).reduce((a, b) => a + b, 0) / 30);
+                    document.getElementById('currentFps').textContent = avgFps + ' fps';
+                }
+                
+                drawFpsChart();
             }
             
-            drawFpsChart();
+            lastFrameTime = metadata.mediaTime;
             
-            fpsChartAnimId = requestAnimationFrame(trackFps);
+            // Request next frame callback
+            if (videoPreview.requestVideoFrameCallback) {
+                videoPreview.requestVideoFrameCallback(trackVideoFps);
+            } else {
+                // Fallback for Safari
+                fpsChartAnimId = requestTimeout(() => {
+                    trackVideoFps(performance.now(), { mediaTime: performance.now() / 1000, presentedFrames: metadata.presentedFrames + 1 });
+                }, 33);
+            }
+        }
+        
+        // Polyfill for browsers without requestVideoFrameCallback
+        function requestTimeout(callback, delay) {
+            const start = performance.now();
+            function check() {
+                if (performance.now() - start >= delay) {
+                    callback();
+                } else {
+                    fpsChartAnimId = requestAnimationFrame(check);
+                }
+            }
+            return requestAnimationFrame(check);
         }
         
         function drawFpsChart() {
