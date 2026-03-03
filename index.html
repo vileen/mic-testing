@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mic Test - Discord/Teams Simulator</title>
+    <title>Mic & Camera Test - Discord/Teams Simulator</title>
     <style>
         * {
             margin: 0;
@@ -19,36 +19,57 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 40px 20px;
+            padding: 20px;
         }
         
         h1 {
             color: #7289da;
             margin-bottom: 10px;
-            font-size: 28px;
+            font-size: 24px;
         }
         
         .subtitle {
             color: #888;
-            margin-bottom: 30px;
-            font-size: 14px;
+            margin-bottom: 20px;
+            font-size: 13px;
         }
         
         .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .panel {
             background: #16213e;
             border-radius: 16px;
-            padding: 30px;
-            max-width: 500px;
-            width: 100%;
+            padding: 25px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        .panel h2 {
+            color: #7289da;
+            margin-bottom: 20px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
         .status {
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 25px;
-            padding: 15px;
+            margin-bottom: 20px;
+            padding: 12px;
             background: #0f3460;
             border-radius: 10px;
         }
@@ -68,12 +89,38 @@
         
         .status-text {
             font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .video-container {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #0a0a1a;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .video-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #666;
+            font-size: 14px;
         }
         
         .controls {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
         }
         
         .control-group {
@@ -83,10 +130,13 @@
         }
         
         label {
-            font-size: 13px;
+            font-size: 12px;
             color: #aaa;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .slider-container {
@@ -113,18 +163,13 @@
             background: #7289da;
             border-radius: 50%;
             cursor: pointer;
-            transition: transform 0.2s;
-        }
-        
-        input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.1);
         }
         
         .value {
             min-width: 60px;
             text-align: right;
             font-family: monospace;
-            font-size: 14px;
+            font-size: 13px;
             color: #7289da;
         }
         
@@ -132,24 +177,17 @@
             background: #7289da;
             color: white;
             border: none;
-            padding: 15px 30px;
+            padding: 12px 24px;
             border-radius: 10px;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
-            margin-top: 10px;
         }
         
         button:hover {
             background: #5b73c7;
             transform: translateY(-2px);
-        }
-        
-        button:disabled {
-            background: #333;
-            cursor: not-allowed;
-            transform: none;
         }
         
         button.stop {
@@ -158,21 +196,6 @@
         
         button.stop:hover {
             background: #d63050;
-        }
-        
-        .info {
-            margin-top: 25px;
-            padding: 15px;
-            background: rgba(114, 137, 218, 0.1);
-            border-left: 3px solid #7289da;
-            border-radius: 0 8px 8px 0;
-            font-size: 13px;
-            line-height: 1.6;
-            color: #aaa;
-        }
-        
-        .info strong {
-            color: #7289da;
         }
         
         .preset-buttons {
@@ -185,17 +208,22 @@
             background: #0f3460;
             padding: 8px 16px;
             font-size: 12px;
-            margin: 0;
+            flex: 1;
+            min-width: 80px;
         }
         
         .preset-btn:hover {
             background: #1a4a7a;
         }
         
+        .preset-btn.active {
+            background: #7289da;
+        }
+        
         .vu-meter {
-            height: 30px;
+            height: 40px;
             background: #0f3460;
-            border-radius: 5px;
+            border-radius: 8px;
             overflow: hidden;
             position: relative;
         }
@@ -203,106 +231,360 @@
         .vu-fill {
             height: 100%;
             width: 0%;
-            background: linear-gradient(90deg, #4ecca3 0%, #f1c40f 70%, #e94560 100%);
+            background: linear-gradient(90deg, #4ecca3 0%, #f1c40f 60%, #e94560 100%);
+            transition: width 0.05s;
+        }
+        
+        .vu-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 12px;
+        }
+        
+        .stat-box {
+            background: #0f3460;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            color: #888;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+        
+        .stat-value {
+            color: #7289da;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+        
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(114, 137, 218, 0.1);
+            border-left: 3px solid #7289da;
+            border-radius: 0 8px 8px 0;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #aaa;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .checkbox-group label {
+            flex-direction: row;
+            cursor: pointer;
+        }
+        
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #7289da;
+        }
+        
+        .device-select {
+            background: #0f3460;
+            color: #fff;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            width: 100%;
+        }
+        
+        .meter-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .meter-label {
+            font-size: 11px;
+            color: #888;
+            width: 60px;
+        }
+        
+        .meter-bar {
+            flex: 1;
+            height: 8px;
+            background: #0f3460;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .meter-fill {
+            height: 100%;
+            width: 0%;
+            background: #7289da;
             transition: width 0.1s;
         }
     </style>
 </head>
 <body>
-    <h1>🎤 Mic Test Pro</h1>
-    <p class="subtitle">Real-time microphone loopback with Discord/Teams simulation</p>
+    <h1>🎤📹 Mic & Camera Test Pro</h1>
+    <p class="subtitle">Real-time audio/video testing with Discord/Teams simulation</p>
     
     <div class="container">
-        <div class="status">
-            <div class="status-dot" id="statusDot"></div>
-            <span class="status-text" id="statusText">Ready to start</span>
+        <!-- AUDIO PANEL -->
+        <div class="panel">
+            <h2>🎤 Audio Test</h2>
+            
+            <div class="status">
+                <div class="status-dot" id="audioStatusDot"></div>
+                <span class="status-text" id="audioStatusText">Click Start to test audio</span>
+            </div>
+            
+            <div class="vu-meter">
+                <div class="vu-fill" id="vuFill"></div>
+            </div>
+            <div class="vu-labels">
+                <span>-60dB</span>
+                <span>-40dB</span>
+                <span>-20dB</span>
+                <span>-10dB</span>
+                <span>0dB</span>
+            </div>
+            
+            <div class="meter-row">
+                <span class="meter-label">Gate:</span>
+                <div class="meter-bar">
+                    <div class="meter-fill" id="gateMeter"></div>
+                </div>
+            </div>
+            <div class="meter-row">
+                <span class="meter-label">Comp:</span>
+                <div class="meter-bar">
+                    <div class="meter-fill" id="compMeter"></div>
+                </div>
+            </div>
+            
+            <div class="controls" style="margin-top: 20px;">
+                <div class="control-group">
+                    <label>Delay (network latency)</label>
+                    <div class="slider-container">
+                        <input type="range" id="delaySlider" min="0" max="5000" value="150" step="50">
+                        <span class="value" id="delayValue">150ms</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Input Gain</label>
+                    <div class="slider-container">
+                        <input type="range" id="gainSlider" min="0" max="300" value="100">
+                        <span class="value" id="gainValue">100%</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Noise Gate Threshold</label>
+                    <div class="slider-container">
+                        <input type="range" id="gateSlider" min="-60" max="-10" value="-40" step="1">
+                        <span class="value" id="gateValue">-40dB</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Compression Ratio</label>
+                    <div class="slider-container">
+                        <input type="range" id="ratioSlider" min="1" max="20" value="12" step="1">
+                        <span class="value" id="ratioValue">12:1</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Presets</label>
+                    <div class="preset-buttons">
+                        <button class="preset-btn" onclick="setPreset('raw')">Raw</button>
+                        <button class="preset-btn" onclick="setPreset('discord')">Discord</button>
+                        <button class="preset-btn" onclick="setPreset('teams')">Teams</button>
+                    </div>
+                </div>
+                
+                <button id="audioToggleBtn" onclick="toggleAudio()">Start Audio Test</button>
+            </div>
         </div>
         
-        <div class="controls">
-            <div class="control-group">
-                <label>Input Level</label>
-                <div class="vu-meter">
-                    <div class="vu-fill" id="vuFill"></div>
+        <!-- VIDEO PANEL -->
+        <div class="panel">
+            <h2>📹 Camera Test</h2>
+            
+            <div class="status">
+                <div class="status-dot" id="videoStatusDot"></div>
+                <span class="status-text" id="videoStatusText">Click Start to test camera</span>
+            </div>
+            
+            <div class="video-container">
+                <video id="videoPreview" autoplay playsinline muted style="display: none;"></video>
+                <div class="video-placeholder" id="videoPlaceholder">
+                    Camera preview will appear here
                 </div>
             </div>
             
-            <div class="control-group">
-                <label>Delay (simulates call latency)</label>
-                <div class="slider-container">
-                    <input type="range" id="delaySlider" min="0" max="5000" value="2000" step="100">
-                    <span class="value" id="delayValue">2000ms</span>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Camera Device</label>
+                    <select class="device-select" id="cameraSelect">
+                        <option value="">Default Camera</option>
+                    </select>
                 </div>
-            </div>
-            
-            <div class="control-group">
-                <label>Input Gain</label>
-                <div class="slider-container">
-                    <input type="range" id="gainSlider" min="0" max="200" value="100">
-                    <span class="value" id="gainValue">100%</span>
+                
+                <div class="control-group">
+                    <label>Resolution</label>
+                    <select class="device-select" id="resolutionSelect">
+                        <option value="">Auto</option>
+                        <option value="1920x1080">1080p</option>
+                        <option value="1280x720">720p</option>
+                        <option value="640x480">480p</option>
+                    </select>
                 </div>
-            </div>
-            
-            <div class="control-group">
-                <label>Discord/Teams Simulation</label>
-                <div class="preset-buttons">
-                    <button class="preset-btn" onclick="setPreset('discord')">Discord</button>
-                    <button class="preset-btn" onclick="setPreset('teams')">MS Teams</button>
-                    <button class="preset-btn" onclick="setPreset('raw')">Raw (No FX)</button>
+                
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-label">Resolution</div>
+                        <div class="stat-value" id="currentRes">-</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Frame Rate</div>
+                        <div class="stat-value" id="currentFps">-</div>
+                    </div>
                 </div>
+                
+                <button id="videoToggleBtn" onclick="toggleVideo()">Start Camera Test</button>
             </div>
-            
-            <div class="control-group">
-                <label>
-                    <input type="checkbox" id="noiseGate"> Noise Gate (cuts silence)
-                </label>
-            </div>
-            
-            <div class="control-group">
-                <label>
-                    <input type="checkbox" id="compression" checked> Voice Compression
-                </label>
-            </div>
-            
-            <button id="toggleBtn" onclick="toggleMic()">Start Mic Test</button>
         </div>
-        
-        <div class="info">
-            <strong>How it works:</strong><br>
-            • Audio is captured from your microphone<br>
-            • Processed through Web Audio API (delay, compression, noise gate)<br>
-            • Played back to your speakers/headphones<br>
-            • <strong>⚠️ Use headphones to prevent feedback!</strong><br><br>
-            <strong>Discord preset:</strong> Aggressive noise gate, voice compression<br>
-            <strong>Teams preset:</strong> Moderate compression, echo cancellation
+    </div>
+    
+    <div class="container" style="margin-top: 20px;">
+        <div class="panel" style="grid-column: 1 / -1;">
+            <h2>⚠️ Important Notes</h2>
+            <div class="info">
+                <strong>Audio:</strong> Use headphones to prevent feedback! Discord preset applies aggressive noise gate (-50dB) and heavy compression (20:1). Teams preset is more moderate.<br><br>
+                <strong>Camera:</strong> Test shows exactly what others see in video calls. Check lighting, angle, and background.<br><br>
+                <strong>Discord processing:</strong> Uses RNNoise for noise suppression + aggressive compression. This simulator approximates those settings using Web Audio API.
+            </div>
         </div>
     </div>
 
     <script>
-        let audioContext = null;
-        let mediaStream = null;
+        // AUDIO SECTION
+        let audioCtx = null;
+        let micStream = null;
         let sourceNode = null;
         let delayNode = null;
         let gainNode = null;
         let compressorNode = null;
+        let gateNode = null;
         let analyserNode = null;
-        let isRunning = false;
-        let animationId = null;
+        let isAudioRunning = false;
+        let audioAnimId = null;
         
-        const statusDot = document.getElementById('statusDot');
-        const statusText = document.getElementById('statusText');
-        const toggleBtn = document.getElementById('toggleBtn');
+        // Custom noise gate implementation
+        class NoiseGateNode {
+            constructor(audioContext, threshold) {
+                this.audioContext = audioContext;
+                this.threshold = threshold;
+                
+                // Create script processor for noise gate
+                this.input = audioContext.createGain();
+                this.output = audioContext.createGain();
+                this.gainControl = audioContext.createGain();
+                
+                // Analyser for level detection
+                this.analyser = audioContext.createAnalyser();
+                this.analyser.fftSize = 256;
+                
+                this.input.connect(this.analyser);
+                this.input.connect(this.gainControl);
+                this.gainControl.connect(this.output);
+                
+                this.isOpen = false;
+                this.attackTime = 0.01;
+                this.releaseTime = 0.1;
+                
+                this.process();
+            }
+            
+            process() {
+                const buffer = new Uint8Array(this.analyser.frequencyBinCount);
+                
+                const checkLevel = () => {
+                    if (!this.audioContext) return;
+                    
+                    this.analyser.getByteFrequencyData(buffer);
+                    let sum = 0;
+                    for (let i = 0; i < buffer.length; i++) {
+                        sum += buffer[i];
+                    }
+                    const average = sum / buffer.length;
+                    const db = 20 * Math.log10(average / 255);
+                    
+                    // Update gate meter
+                    const gateMeter = document.getElementById('gateMeter');
+                    if (gateMeter) {
+                        const meterValue = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+                        gateMeter.style.width = meterValue + '%';
+                    }
+                    
+                    const now = this.audioContext.currentTime;
+                    
+                    if (db > this.threshold) {
+                        if (!this.isOpen) {
+                            this.isOpen = true;
+                            this.gainControl.gain.setTargetAtTime(1, now, this.attackTime);
+                        }
+                    } else {
+                        if (this.isOpen) {
+                            this.isOpen = false;
+                            this.gainControl.gain.setTargetAtTime(0.01, now, this.releaseTime);
+                        }
+                    }
+                    
+                    requestAnimationFrame(checkLevel);
+                };
+                
+                checkLevel();
+            }
+            
+            setThreshold(threshold) {
+                this.threshold = threshold;
+            }
+        }
+        
+        const audioStatusDot = document.getElementById('audioStatusDot');
+        const audioStatusText = document.getElementById('audioStatusText');
+        const audioToggleBtn = document.getElementById('audioToggleBtn');
         const vuFill = document.getElementById('vuFill');
         
         const delaySlider = document.getElementById('delaySlider');
         const delayValue = document.getElementById('delayValue');
         const gainSlider = document.getElementById('gainSlider');
         const gainValue = document.getElementById('gainValue');
+        const gateSlider = document.getElementById('gateSlider');
+        const gateValue = document.getElementById('gateValue');
+        const ratioSlider = document.getElementById('ratioSlider');
+        const ratioValue = document.getElementById('ratioValue');
         
         delaySlider.addEventListener('input', (e) => {
             const val = e.target.value;
             delayValue.textContent = val + 'ms';
             if (delayNode) {
-                delayNode.delayTime.setValueAtTime(val / 1000, audioContext.currentTime);
+                delayNode.delayTime.setTargetAtTime(val / 1000, audioCtx.currentTime, 0.1);
             }
         });
         
@@ -310,103 +592,120 @@
             const val = e.target.value;
             gainValue.textContent = val + '%';
             if (gainNode) {
-                gainNode.gain.setValueAtTime(val / 100, audioContext.currentTime);
+                gainNode.gain.setTargetAtTime(val / 100, audioCtx.currentTime, 0.1);
+            }
+        });
+        
+        gateSlider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            gateValue.textContent = val + 'dB';
+            if (gateNode) {
+                gateNode.setThreshold(val);
+            }
+        });
+        
+        ratioSlider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            ratioValue.textContent = val + ':1';
+            if (compressorNode) {
+                compressorNode.ratio.setTargetAtTime(parseFloat(val), audioCtx.currentTime, 0.1);
             }
         });
         
         function setPreset(type) {
-            const noiseGate = document.getElementById('noiseGate');
-            const compression = document.getElementById('compression');
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
             
             switch(type) {
+                case 'raw':
+                    delaySlider.value = 0;
+                    gateSlider.value = -60;
+                    ratioSlider.value = 1;
+                    break;
                 case 'discord':
-                    noiseGate.checked = true;
-                    compression.checked = true;
-                    delaySlider.value = 2000;
-                    delayValue.textContent = '2000ms';
+                    delaySlider.value = 150;
+                    gateSlider.value = -50;
+                    ratioSlider.value = 20;
                     break;
                 case 'teams':
-                    noiseGate.checked = false;
-                    compression.checked = true;
-                    delaySlider.value = 1500;
-                    delayValue.textContent = '1500ms';
-                    break;
-                case 'raw':
-                    noiseGate.checked = false;
-                    compression.checked = false;
-                    delaySlider.value = 500;
-                    delayValue.textContent = '500ms';
+                    delaySlider.value = 200;
+                    gateSlider.value = -40;
+                    ratioSlider.value = 8;
                     break;
             }
             
-            if (delayNode) {
-                delayNode.delayTime.setValueAtTime(delaySlider.value / 1000, audioContext.currentTime);
-            }
+            delaySlider.dispatchEvent(new Event('input'));
+            gateSlider.dispatchEvent(new Event('input'));
+            ratioSlider.dispatchEvent(new Event('input'));
         }
         
-        async function toggleMic() {
-            if (isRunning) {
-                stopMic();
+        async function toggleAudio() {
+            if (isAudioRunning) {
+                stopAudio();
             } else {
-                await startMic();
+                await startAudio();
             }
         }
         
-        async function startMic() {
+        async function startAudio() {
             try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 
-                mediaStream = await navigator.mediaDevices.getUserMedia({
+                micStream = await navigator.mediaDevices.getUserMedia({
                     audio: {
                         echoCancellation: false,
                         noiseSuppression: false,
                         autoGainControl: false,
-                        sampleRate: 48000
+                        sampleRate: 48000,
+                        channelCount: 1
                     }
                 });
                 
-                sourceNode = audioContext.createMediaStreamSource(mediaStream);
+                sourceNode = audioCtx.createMediaStreamSource(micStream);
+                
+                // Input gain
+                const inputGain = audioCtx.createGain();
+                inputGain.gain.value = gainSlider.value / 100;
+                
+                // Noise gate (custom)
+                gateNode = new NoiseGateNode(audioCtx, parseInt(gateSlider.value));
+                
+                // Compressor (Discord-like)
+                compressorNode = audioCtx.createDynamicsCompressor();
+                compressorNode.threshold.value = -24;
+                compressorNode.knee.value = 0;
+                compressorNode.ratio.value = parseInt(ratioSlider.value);
+                compressorNode.attack.value = 0.003;
+                compressorNode.release.value = 0.1;
+                
+                // Delay (network simulation)
+                delayNode = audioCtx.createDelay(5.0);
+                delayNode.delayTime.value = delaySlider.value / 1000;
+                
+                // Output gain
+                gainNode = audioCtx.createGain();
+                gainNode.gain.value = 0.8;
                 
                 // Analyser for VU meter
-                analyserNode = audioContext.createAnalyser();
+                analyserNode = audioCtx.createAnalyser();
                 analyserNode.fftSize = 256;
                 
-                // Compressor (voice processing like Discord/Teams)
-                compressorNode = audioContext.createDynamicsCompressor();
-                compressorNode.threshold.setValueAtTime(-24, audioContext.currentTime);
-                compressorNode.knee.setValueAtTime(30, audioContext.currentTime);
-                compressorNode.ratio.setValueAtTime(12, audioContext.currentTime);
-                compressorNode.attack.setValueAtTime(0.003, audioContext.currentTime);
-                compressorNode.release.setValueAtTime(0.25, audioContext.currentTime);
-                
-                // Delay node
-                delayNode = audioContext.createDelay(5.0);
-                delayNode.delayTime.setValueAtTime(delaySlider.value / 1000, audioContext.currentTime);
-                
-                // Gain node
-                gainNode = audioContext.createGain();
-                gainNode.gain.setValueAtTime(gainSlider.value / 100, audioContext.currentTime);
-                
-                // Connect graph
-                sourceNode.connect(analyserNode);
-                
-                if (document.getElementById('compression').checked) {
-                    analyserNode.connect(compressorNode);
-                    compressorNode.connect(delayNode);
-                } else {
-                    analyserNode.connect(delayNode);
-                }
-                
+                // Connect chain
+                sourceNode.connect(inputGain);
+                inputGain.connect(gateNode.input);
+                gateNode.output.connect(compressorNode);
+                compressorNode.connect(delayNode);
                 delayNode.connect(gainNode);
-                gainNode.connect(audioContext.destination);
+                gainNode.connect(analyserNode);
+                analyserNode.connect(audioCtx.destination);
                 
-                isRunning = true;
-                toggleBtn.textContent = 'Stop Mic Test';
-                toggleBtn.classList.add('stop');
-                statusDot.classList.add('active');
-                statusText.textContent = 'Listening... (use headphones!)';
+                isAudioRunning = true;
+                audioToggleBtn.textContent = 'Stop Audio Test';
+                audioToggleBtn.classList.add('stop');
+                audioStatusDot.classList.add('active');
+                audioStatusText.textContent = 'Listening... use headphones!';
                 
-                updateVU();
+                updateVUMeter();
                 
             } catch (err) {
                 alert('Error accessing microphone: ' + err.message);
@@ -414,29 +713,29 @@
             }
         }
         
-        function stopMic() {
-            if (animationId) {
-                cancelAnimationFrame(animationId);
+        function stopAudio() {
+            if (audioAnimId) cancelAnimationFrame(audioAnimId);
+            
+            if (micStream) {
+                micStream.getTracks().forEach(track => track.stop());
             }
             
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(track => track.stop());
+            if (audioCtx) {
+                audioCtx.close();
             }
             
-            if (audioContext) {
-                audioContext.close();
-            }
-            
-            isRunning = false;
-            toggleBtn.textContent = 'Start Mic Test';
-            toggleBtn.classList.remove('stop');
-            statusDot.classList.remove('active');
-            statusText.textContent = 'Ready to start';
+            isAudioRunning = false;
+            audioToggleBtn.textContent = 'Start Audio Test';
+            audioToggleBtn.classList.remove('stop');
+            audioStatusDot.classList.remove('active');
+            audioStatusText.textContent = 'Click Start to test audio';
             vuFill.style.width = '0%';
+            document.getElementById('gateMeter').style.width = '0%';
+            document.getElementById('compMeter').style.width = '0%';
         }
         
-        function updateVU() {
-            if (!isRunning) return;
+        function updateVUMeter() {
+            if (!isAudioRunning) return;
             
             const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
             analyserNode.getByteFrequencyData(dataArray);
@@ -446,12 +745,136 @@
                 sum += dataArray[i];
             }
             const average = sum / dataArray.length;
-            const percentage = Math.min(100, (average / 128) * 100);
+            const db = 20 * Math.log10(average / 255);
+            const percentage = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
             
             vuFill.style.width = percentage + '%';
             
-            animationId = requestAnimationFrame(updateVU);
+            // Update compression meter
+            if (compressorNode) {
+                const reduction = compressorNode.reduction;
+                const compMeter = document.getElementById('compMeter');
+                if (compMeter && reduction) {
+                    const compPercent = Math.min(100, Math.abs(reduction) / 20 * 100);
+                    compMeter.style.width = compPercent + '%';
+                }
+            }
+            
+            audioAnimId = requestAnimationFrame(updateVUMeter);
         }
+        
+        // VIDEO SECTION
+        let videoStream = null;
+        let isVideoRunning = false;
+        
+        const videoPreview = document.getElementById('videoPreview');
+        const videoPlaceholder = document.getElementById('videoPlaceholder');
+        const videoStatusDot = document.getElementById('videoStatusDot');
+        const videoStatusText = document.getElementById('videoStatusText');
+        const videoToggleBtn = document.getElementById('videoToggleBtn');
+        const cameraSelect = document.getElementById('cameraSelect');
+        const resolutionSelect = document.getElementById('resolutionSelect');
+        
+        // Populate camera list
+        async function populateCameras() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const cameras = devices.filter(d => d.kind === 'videoinput');
+                
+                cameraSelect.innerHTML = '<option value="">Default Camera</option>';
+                cameras.forEach((cam, idx) => {
+                    const option = document.createElement('option');
+                    option.value = cam.deviceId;
+                    option.text = cam.label || `Camera ${idx + 1}`;
+                    cameraSelect.appendChild(option);
+                });
+            } catch (err) {
+                console.error('Error enumerating cameras:', err);
+            }
+        }
+        
+        populateCameras();
+        
+        async function toggleVideo() {
+            if (isVideoRunning) {
+                stopVideo();
+            } else {
+                await startVideo();
+            }
+        }
+        
+        async function startVideo() {
+            try {
+                const constraints = {
+                    video: {
+                        deviceId: cameraSelect.value ? { exact: cameraSelect.value } : undefined
+                    },
+                    audio: false
+                };
+                
+                // Add resolution constraint
+                const resolution = resolutionSelect.value;
+                if (resolution) {
+                    const [width, height] = resolution.split('x').map(Number);
+                    constraints.video.width = { ideal: width };
+                    constraints.video.height = { ideal: height };
+                }
+                
+                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoPreview.srcObject = videoStream;
+                videoPreview.style.display = 'block';
+                videoPlaceholder.style.display = 'none';
+                
+                // Get actual settings
+                const track = videoStream.getVideoTracks()[0];
+                const settings = track.getSettings();
+                document.getElementById('currentRes').textContent = `${settings.width}x${settings.height}`;
+                document.getElementById('currentFps').textContent = `${settings.frameRate || '-'} fps`;
+                
+                isVideoRunning = true;
+                videoToggleBtn.textContent = 'Stop Camera Test';
+                videoToggleBtn.classList.add('stop');
+                videoStatusDot.classList.add('active');
+                videoStatusText.textContent = 'Camera active';
+                
+            } catch (err) {
+                alert('Error accessing camera: ' + err.message);
+                console.error(err);
+            }
+        }
+        
+        function stopVideo() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+            }
+            
+            videoPreview.srcObject = null;
+            videoPreview.style.display = 'none';
+            videoPlaceholder.style.display = 'flex';
+            
+            document.getElementById('currentRes').textContent = '-';
+            document.getElementById('currentFps').textContent = '-';
+            
+            isVideoRunning = false;
+            videoToggleBtn.textContent = 'Start Camera Test';
+            videoToggleBtn.classList.remove('stop');
+            videoStatusDot.classList.remove('active');
+            videoStatusText.textContent = 'Click Start to test camera';
+        }
+        
+        cameraSelect.addEventListener('change', () => {
+            if (isVideoRunning) {
+                stopVideo();
+                startVideo();
+            }
+        });
+        
+        resolutionSelect.addEventListener('change', () => {
+            if (isVideoRunning) {
+                stopVideo();
+                startVideo();
+            }
+        });
     </script>
 </body>
 </html>
