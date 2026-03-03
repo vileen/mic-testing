@@ -108,6 +108,10 @@
             object-fit: cover;
         }
         
+        video.mirrored {
+            transform: scaleX(-1);
+        }
+        
         .video-placeholder {
             display: flex;
             align-items: center;
@@ -507,6 +511,12 @@
                     </select>
                 </div>
                 
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" id="mirrorToggle" checked> 🪞 Mirror view (like Teams/Zoom)
+                    </label>
+                </div>
+                
                 <div class="stats">
                     <div class="stat-box">
                         <div class="stat-label">Resolution</div>
@@ -858,6 +868,7 @@
         const videoToggleBtn = document.getElementById('videoToggleBtn');
         const cameraSelect = document.getElementById('cameraSelect');
         const resolutionSelect = document.getElementById('resolutionSelect');
+        const mirrorToggle = document.getElementById('mirrorToggle');
         
         // Populate camera list
         async function populateCameras() {
@@ -909,6 +920,11 @@
                 videoPreview.style.display = 'block';
                 videoPlaceholder.style.display = 'none';
                 
+                // Apply mirror effect
+                if (mirrorToggle.checked) {
+                    videoPreview.classList.add('mirrored');
+                }
+                
                 // Get actual settings
                 const track = videoStream.getVideoTracks()[0];
                 const settings = track.getSettings();
@@ -957,6 +973,14 @@
             if (isVideoRunning) {
                 stopVideo();
                 startVideo();
+            }
+        });
+        
+        mirrorToggle.addEventListener('change', () => {
+            if (mirrorToggle.checked) {
+                videoPreview.classList.add('mirrored');
+            } else {
+                videoPreview.classList.remove('mirrored');
             }
         });
     </script>
