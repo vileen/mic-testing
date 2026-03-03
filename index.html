@@ -220,27 +220,70 @@
             background: #7289da;
         }
         
-        .vu-meter {
-            height: 40px;
+        .freq-analyzer {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
             background: #0f3460;
+            padding: 15px;
+            border-radius: 12px;
+        }
+        
+        .freq-band {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .freq-label {
+            font-size: 11px;
+            color: #888;
+            text-align: center;
+            line-height: 1.3;
+        }
+        
+        .freq-bar-container {
+            width: 100%;
+            height: 120px;
+            background: #0a0a1a;
             border-radius: 8px;
             overflow: hidden;
             position: relative;
+            display: flex;
+            align-items: flex-end;
+        }
+        
+        .freq-bar {
+            width: 100%;
+            height: 0%;
+            transition: height 0.05s ease-out;
+            border-radius: 4px 4px 0 0;
+        }
+        
+        #lowBand {
+            background: linear-gradient(180deg, #ff6b6b 0%, #ee5a24 100%);
+        }
+        
+        #midBand {
+            background: linear-gradient(180deg, #4ecca3 0%, #2ecc71 100%);
+        }
+        
+        #highBand {
+            background: linear-gradient(180deg, #74b9ff 0%, #0984e3 100%);
+        }
+        
+        .vu-meter {
+            display: none;
         }
         
         .vu-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #4ecca3 0%, #f1c40f 60%, #e94560 100%);
-            transition: width 0.05s;
+            display: none;
         }
         
         .vu-labels {
-            display: flex;
-            justify-content: space-between;
-            font-size: 10px;
-            color: #666;
-            margin-top: 5px;
+            display: none;
         }
         
         .stats {
@@ -350,15 +393,25 @@
                 <span class="status-text" id="audioStatusText">Click Start to test audio</span>
             </div>
             
-            <div class="vu-meter">
-                <div class="vu-fill" id="vuFill"></div>
-            </div>
-            <div class="vu-labels">
-                <span>-60dB</span>
-                <span>-40dB</span>
-                <span>-20dB</span>
-                <span>-10dB</span>
-                <span>0dB</span>
+            <div class="freq-analyzer">
+                <div class="freq-band">
+                    <span class="freq-label">🔊 Low<br><small>80-250Hz</small></span>
+                    <div class="freq-bar-container">
+                        <div class="freq-bar" id="lowBand"></div>
+                    </div>
+                </div>
+                <div class="freq-band">
+                    <span class="freq-label">🎵 Mid<br><small>250-4kHz</small></span>
+                    <div class="freq-bar-container">
+                        <div class="freq-bar" id="midBand"></div>
+                    </div>
+                </div>
+                <div class="freq-band">
+                    <span class="freq-label">✨ High<br><small>4k-16kHz</small></span>
+                    <div class="freq-bar-container">
+                        <div class="freq-bar" id="highBand"></div>
+                    </div>
+                </div>
             </div>
             
             <div class="meter-row">
@@ -569,7 +622,9 @@
         const audioStatusDot = document.getElementById('audioStatusDot');
         const audioStatusText = document.getElementById('audioStatusText');
         const audioToggleBtn = document.getElementById('audioToggleBtn');
-        const vuFill = document.getElementById('vuFill');
+        const lowBand = document.getElementById('lowBand');
+        const midBand = document.getElementById('midBand');
+        const highBand = document.getElementById('highBand');
         
         const delaySlider = document.getElementById('delaySlider');
         const delayValue = document.getElementById('delayValue');
@@ -686,9 +741,9 @@
                 gainNode = audioCtx.createGain();
                 gainNode.gain.value = 0.8;
                 
-                // Analyser for VU meter
+                // Analyser for frequency analysis
                 analyserNode = audioCtx.createAnalyser();
-                analyserNode.fftSize = 256;
+                analyserNode.fftSize = 2048; // Higher resolution for better frequency separation
                 
                 // Connect chain
                 sourceNode.connect(inputGain);
@@ -729,7 +784,9 @@
             audioToggleBtn.classList.remove('stop');
             audioStatusDot.classList.remove('active');
             audioStatusText.textContent = 'Click Start to test audio';
-            vuFill.style.width = '0%';
+            if (lowBand) lowBand.style.height = '0%';
+            if (midBand) midBand.style.height = '0%';
+            if (highBand) highBand.style.height = '0%';
             document.getElementById('gateMeter').style.width = '0%';
             document.getElementById('compMeter').style.width = '0%';
         }
@@ -737,18 +794,45 @@
         function updateVUMeter() {
             if (!isAudioRunning) return;
             
-            const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
+            const bufferLength = analyserNode.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
             analyserNode.getByteFrequencyData(dataArray);
             
-            let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) {
-                sum += dataArray[i];
-            }
-            const average = sum / dataArray.length;
-            const db = 20 * Math.log10(average / 255);
-            const percentage = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+            const sampleRate = audioCtx.sampleRate;
+            const nyquist = sampleRate / 2;
             
-            vuFill.style.width = percentage + '%';
+            // Calculate frequency ranges
+            // Low: 80-250Hz, Mid: 250-4000Hz, High: 4000-16000Hz
+            const lowEnd = Math.floor(250 / nyquist * bufferLength);
+            const midEnd = Math.floor(4000 / nyquist * bufferLength);
+            const highEnd = Math.floor(16000 / nyquist * bufferLength);
+            
+            // Calculate average for each band
+            let lowSum = 0, midSum = 0, highSum = 0;
+            let lowCount = 0, midCount = 0, highCount = 0;
+            
+            for (let i = 0; i < bufferLength; i++) {
+                const freq = (i / bufferLength) * nyquist;
+                if (freq >= 80 && freq < 250) {
+                    lowSum += dataArray[i];
+                    lowCount++;
+                } else if (freq >= 250 && freq < 4000) {
+                    midSum += dataArray[i];
+                    midCount++;
+                } else if (freq >= 4000 && freq < 16000) {
+                    highSum += dataArray[i];
+                    highCount++;
+                }
+            }
+            
+            const lowAvg = lowCount > 0 ? lowSum / lowCount : 0;
+            const midAvg = midCount > 0 ? midSum / midCount : 0;
+            const highAvg = highCount > 0 ? highSum / highCount : 0;
+            
+            // Convert to percentage (0-255 -> 0-100%)
+            if (lowBand) lowBand.style.height = Math.min(100, (lowAvg / 255) * 150) + '%';
+            if (midBand) midBand.style.height = Math.min(100, (midAvg / 255) * 150) + '%';
+            if (highBand) highBand.style.height = Math.min(100, (highAvg / 255) * 150) + '%';
             
             // Update compression meter
             if (compressorNode) {
