@@ -1017,7 +1017,8 @@
             try {
                 const constraints = {
                     video: {
-                        deviceId: cameraSelect.value ? { exact: cameraSelect.value } : undefined
+                        deviceId: cameraSelect.value ? { exact: cameraSelect.value } : undefined,
+                        frameRate: { ideal: 60, min: 30 }
                     },
                     audio: false
                 };
